@@ -115,6 +115,7 @@ point. Standard errors over seeds are at most 0.002 on either boundary set.
 | `slim.py` | Cuts the full summary down to the columns the paper uses. |
 | `mko.py` | Turns the summary CSVs into the numbers and tables quoted in the paper. |
 | `bootstrap_ci.py` | Paired bootstrap intervals on the inflation factor. |
+| `band_compare.py` | The three-way band comparison, the hit rates and the cost-aware arms, from the `zz_*.json` files written by `zy.py`. |
 | `figs.py` | Renders the three figures from `series.py`. |
 
 `bootstrap_ci.py` resamples seeds and recomputes the whole ratio, because the
@@ -127,6 +128,7 @@ the usable tail.
 ```
 python3 sy.py                       # run where the xy_*.json files are
 python3 bootstrap_ci.py --dir . --frac 0.32 --q 0.90
+python3 band_compare.py zz_oneil_Y_svd_homo_v2.json --frac 0.32
 python3 figs.py                     # writes figures/{bands,effect,budget}.pdf
 ```
 
@@ -135,7 +137,8 @@ python3 figs.py                     # writes figures/{bands,effect,budget}.pdf
 `series.py` holds the exact series plotted in the paper, with the provenance of
 each block noted inline, so the figures can be regenerated without re-running
 any experiment. `ci.py` holds the bootstrap intervals in the same form.
-`test_small.npz` is a synthetic 60-by-40 screen with 85 percent of its cells
+`hat.py` holds the three-way band comparison, the hit rates and the
+cost-aware costs for both screens. `test_small.npz` is a synthetic 60-by-40 screen with 85 percent of its cells
 observed, for exercising the pipeline end to end without downloading anything.
 
 ## The screens
