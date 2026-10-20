@@ -39,6 +39,8 @@ dependencies in the working directory.
 | `xy.py` | The main driver. Replays the full design lattice against a fixed empirical ground truth and writes one record per (budget, seed, quantile, band, design). |
 | `zy.py` | The extended driver. Adds the three measurements described below. |
 | `mkpatch.py` | Builds `zy.py` from `xy.py`, so the difference between the two is auditable as a patch rather than a fork. |
+| `wy.py` | The second extended driver. Adds the subset decomposition, the per-pair error counts and two further designs. |
+| `mkpatch2.py` | Builds `wy.py` from `zy.py`, on the same principle. |
 
 Run from the directory holding the screen pickles:
 
@@ -83,6 +85,41 @@ fails loudly rather than silently if the driver changes.
 The random seed stream is untouched, so the arms that exist in both drivers
 reproduce identical numbers.
 
+### What `wy.py` adds
+
+`wy.py` is `zy.py` plus four things. Regenerate it with `python3 mkpatch2.py`,
+which asserts that every edit site matched.
+
+1. **Subset error rates.** Every arm is scored separately on the overlap
+   `B n B*`, on the part of the model-free band that the model-defined band
+   misses, `B* \ B`, and on `B` itself. Against the non-targeting control these
+   give the overlap `omega` and the two corrections `kappa` and `mu` that the
+   ratio proposition names, so the decomposition is measured rather than
+   assumed.
+2. **Per-pair error counts.** Errors on `B*` and on `B` are summed within each
+   drug pair and written as `pe` and `qe`, with the matching denominators
+   written once per band as a `pairdenom` record. An interval can then be
+   resampled over drug pairs, which is the unit a screen can add or drop, rather
+   than over noise seeds.
+3. **`ucb`**, which spends the second stage where the posterior mean plus two
+   standard deviations is largest. This is the exploitation loop that deployed
+   recommenders run.
+4. **`straddle`**, which spends the second stage where `1.96 s(e) - |m(e) -
+   tau|` is largest. This is the level-set acquisition of the active level-set
+   estimation literature, applied to the same posterior.
+
+The two new designs draw from their own generator, so every arm that also
+exists in `zy.py` reproduces identical numbers.
+
+```
+python3 wy.py --ds oneil --prior svd --noise homo --seeds 20 \
+    --fracs 0.08,0.32,1.28 --bands 0.10,0.30 --quants 0.90 --tag _p1
+```
+
+Records are appended to `ww_<screen>_<score>_<prior>_<noise><tag>.json`. The
+per-pair vectors are long, so run `wy.py` on the settings the paper reports
+rather than on the full lattice; `--pairs 0` turns them off.
+
 ### The controlled study
 
 `syn.py` builds the situation directly, with no screen involved. A rank-`r`
@@ -114,7 +151,9 @@ point. Standard errors over seeds are at most 0.002 on either boundary set.
 | `sy.py` | Summarises every `xy_*.json` into CSVs, with bootstrap intervals over seeds on boundary error and global F1. |
 | `slim.py` | Cuts the full summary down to the columns the paper uses. |
 | `mko.py` | Turns the summary CSVs into the numbers and tables quoted in the paper. |
-| `bootstrap_ci.py` | Paired bootstrap intervals on the inflation factor. |
+| `bootstrap_ci.py` | Paired bootstrap intervals on the inflation factor, over seeds. `--glob` selects which record files to read. |
+| `pair_ci.py` | Intervals on the two gains and on their difference, resampled over drug pairs, with the measured `omega`, `kappa` and `mu` beside the predicted factor. |
+| `alpha_decomp.py` | The same decomposition in the controlled model, swept over targeting strength. |
 | `band_compare.py` | The three-way band comparison, the hit rates and the cost-aware arms, from the `zz_*.json` files written by `zy.py`. |
 | `figs.py` | Renders the three figures from `series.py`. |
 
@@ -129,7 +168,10 @@ the usable tail.
 python3 sy.py                       # run where the xy_*.json files are
 python3 bootstrap_ci.py --dir . --frac 0.32 --q 0.90
 python3 band_compare.py zz_oneil_Y_svd_homo_v2.json --frac 0.32
+python3 pair_ci.py ww_oneil_Y_svd_homo_p1.json --frac 0.32 --q 0.90 --b 0.30
+python3 alpha_decomp.py --seeds 200 --out alpha_base.json
 python3 figs.py                     # writes figures/{bands,effect,budget}.pdf
+                                    # set FIGDIR to write them elsewhere
 ```
 
 ### Recorded series
@@ -138,7 +180,9 @@ python3 figs.py                     # writes figures/{bands,effect,budget}.pdf
 each block noted inline, so the figures can be regenerated without re-running
 any experiment. `ci.py` holds the bootstrap intervals in the same form.
 `hat.py` holds the three-way band comparison, the hit rates and the
-cost-aware costs for both screens. `test_small.npz` is a synthetic 60-by-40 screen with 85 percent of its cells
+cost-aware costs for both screens. `alpha.py` holds the measured decomposition
+in the controlled model, `robust.py` the factors under the four synergy models,
+and `pairs.py` the gains and their difference with intervals over drug pairs. `test_small.npz` is a synthetic 60-by-40 screen with 85 percent of its cells
 observed, for exercising the pipeline end to end without downloading anything.
 
 ## The screens
@@ -171,10 +215,12 @@ pip install numpy scipy pandas scikit-learn matplotlib
 1. Place the two screen pickles beside the scripts.
 2. Run `xy.py` for each screen under each prior class and noise model.
 3. Run `zy.py` for each screen to add the purchased-data band, the hit rates and
-   the cost-aware arms.
+   the cost-aware arms, and `wy.py` for the subset decomposition, the per-pair
+   counts and the two further designs.
 4. Run `sy.py`, then `slim.py`, then `mko.py`.
 5. Run `syn.py` over the five sweeps.
-6. Run `bootstrap_ci.py` for the intervals and `figs.py` for the figures.
+6. Run `bootstrap_ci.py` and `pair_ci.py` for the intervals, `alpha_decomp.py`
+   for the decomposition, and `figs.py` for the figures.
 
 Every design is replayed against the same fixed empirical ground truth with a
 common random seed stream, so comparisons at a fixed budget are paired across

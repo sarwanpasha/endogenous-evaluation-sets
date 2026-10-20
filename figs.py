@@ -14,11 +14,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import series as S
 
-OUT = os.path.join(HERE, "figures")
+OUT = os.environ.get("FIGDIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures"))
 os.makedirs(OUT, exist_ok=True)
 
 W = 6.5  # text width in inches (letter paper, 1 inch margins)
@@ -96,9 +95,8 @@ def fig_bands():
     band = np.abs(L - tau) <= b
     both = star & band
 
-    fig, axes = plt.subplots(1, 2, figsize=(W, 2.65))
+    fig, ax = plt.subplots(1, 1, figsize=(0.50 * W, 2.20))
 
-    ax = axes[0]
     sel = rng.choice(F.size, 6000, replace=False)
     f, l = F[sel], L[sel]
     s_, b_, o_ = star[sel], band[sel], both[sel]
@@ -124,24 +122,7 @@ def fig_bands():
     ], loc="upper left", handletextpad=0.2, borderpad=0.2, labelspacing=0.25)
     _tidy(ax)
 
-    # Both knobs are measured in units of sigma_F, so one axis carries both.
-    ax = axes[1]
-    pts = S.SYN_SWEEP["b"]
-    ax.plot([p[0] for p in pts], [p[1] for p in pts], "o-", color=C["b"],
-            label=r"band half-width $b$")
-    pts = S.SYN_SWEEP["eta"]
-    ax.plot([p[0] for p in pts], [p[1] for p in pts], "^-", color=C["eta"],
-            label=r"prior error $\eta$")
-    ax.set_xlabel(r"$b$ or $\eta$  (units of $\sigma_F$)")
-    ax.set_ylabel(r"overlap $|\mathcal{B}\cap\mathcal{B}^{*}|/M^{*}$")
-    ax.set_ylim(0, 1)
-    ax.set_xlim(0, 1.05)
-    ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
-    ax.legend(loc="upper right", handletextpad=0.4, borderpad=0.2,
-              labelspacing=0.25)
-    _tidy(ax)
-
-    fig.tight_layout(w_pad=2.0)
+    fig.tight_layout()
     fig.savefig(os.path.join(OUT, "bands.pdf"))
     plt.close(fig)
 
@@ -149,7 +130,7 @@ def fig_bands():
 # ---------------------------------------------------------------- figure 2 --
 def fig_effect():
     """The inflation factor, on the screens and in the controlled study."""
-    fig, axes = plt.subplots(1, 3, figsize=(W, 2.5))
+    fig, axes = plt.subplots(1, 3, figsize=(W, 2.00))
 
     ax = axes[0]
     for ds, lab in (("oneil", "O'Neil"), ("dcomb", "DrugComb")):
@@ -201,7 +182,7 @@ def fig_effect():
 # ---------------------------------------------------------------- figure 3 --
 def fig_budget():
     """Boundary error against budget on the model-free set."""
-    fig, axes = plt.subplots(1, 2, figsize=(W, 2.45))
+    fig, axes = plt.subplots(1, 2, figsize=(W, 1.95))
     T = np.array(S.BUDGETS)
     order = ["null0", "blind", "passive", "band_hat", "lse", "ig", "band_inf"]
     for ax, ds, lab in zip(axes, ("oneil", "dcomb"), ("O'Neil", "DrugComb")):

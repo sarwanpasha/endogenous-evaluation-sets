@@ -20,8 +20,9 @@ Usage:
 
     python3 bootstrap_ci.py --dir /path/to/results --frac 0.32 --q 0.90
 
-Expects the per-seed record files written by screens/xy.py, named
-xy_<screen>_<score>_<prior>_<noise>.json.
+Expects the per-seed record files written by xy.py or zy.py, named
+xy_<screen>_<score>_<prior>_<noise>.json; --glob selects a different set, for
+instance the runs under the other synergy models.
 """
 import argparse
 import glob
@@ -31,7 +32,8 @@ import os
 import numpy as np
 
 REFERENCE = 'blind'            # the non-targeting control, UNIF in the paper
-DESIGNS = ['meas', 'passive', 'band_hat', 'lse', 'ig', 'band_inf']
+DESIGNS = ['meas', 'passive', 'band_hat', 'lse', 'ig', 'ucb', 'straddle',
+           'band_inf']
 RESAMPLES = 4000
 MIN_GAIN = 1e-9                # a gain at or below this is treated as absent
 MIN_USABLE = 0.90              # fraction of resamples that must yield a ratio
@@ -41,7 +43,7 @@ def load(path, q):
     """Index the per-seed records by (band, budget, design, seed)."""
     table = {}
     for row in json.load(open(path)):
-        if abs(float(row['q']) - q) > 1e-9:
+        if 'berrT' not in row or abs(float(row['q']) - q) > 1e-9:
             continue
         key = (float(row['b']), float(row['frac']), row['meth'], int(row['seed']))
         table[key] = (float(row['berrT']), float(row['berr']))
@@ -80,7 +82,9 @@ def interval(star, model, rng):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--dir', default='.', help='directory holding xy_*.json')
+    ap.add_argument('--dir', default='.', help='directory holding the record files')
+    ap.add_argument('--glob', default='xy_*_svd_homo.json',
+                    help='which record files in that directory to read')
     ap.add_argument('--q', type=float, default=0.90)
     ap.add_argument('--frac', type=float, default=0.32)
     ap.add_argument('--bands', default='0.30,0.10')
@@ -88,9 +92,9 @@ def main():
     args = ap.parse_args()
 
     rng = np.random.default_rng(args.seed)
-    files = sorted(glob.glob(os.path.join(args.dir, 'xy_*_svd_homo.json')))
+    files = sorted(glob.glob(os.path.join(args.dir, args.glob)))
     if not files:
-        raise SystemExit('no xy_*_svd_homo.json under %s' % args.dir)
+        raise SystemExit('no %s under %s' % (args.glob, args.dir))
 
     for path in files:
         table = load(path, args.q)
